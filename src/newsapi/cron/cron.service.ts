@@ -2,11 +2,13 @@ import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { CronJob } from 'cron';
-import { CronServicePort } from '../../common/ports/cron.port';
+import { CronServicePort } from '../../common/ports/cron-service.port';
 import { NewsImporterPort } from '../../common/ports/news-importer.port';
-import { NewsRepositoryPort } from '../../common/ports/news-repository.port';
+import { CronRepositoryPort } from '../../common/ports/cron-repository.port';
 import { JobState } from '../../../prisma/interfaces';
 import { convertIntervalToCronScheduleValue } from '../../common/utils';
+import * as process from 'node:process';
+import { UpdateCronJobDto } from '../../common/dto/update-cron-job.dto';
 
 @Injectable()
 export class CronService implements CronServicePort, OnModuleDestroy {
@@ -24,7 +26,7 @@ export class CronService implements CronServicePort, OnModuleDestroy {
     private readonly newsApiService: NewsImporterPort,
     private readonly schedulerRegistry: SchedulerRegistry,
     private readonly configService: ConfigService,
-    private readonly newsRepository: NewsRepositoryPort,
+    private readonly newsRepository: CronRepositoryPort,
   ) {
     this.registerAndStartCronJob().then();
     this.setupShutdownHooks();
@@ -113,5 +115,24 @@ export class CronService implements CronServicePort, OnModuleDestroy {
       await this.stopCron();
       process.exit(0);
     });
+  }
+
+  async updateCronJobDataByName(
+    cronJobName: string,
+    updateData: UpdateCronJobDto,
+  ): Promise<void> {
+    try {
+      await this.newsRepository.updateCronJobDataByName(cronJobName, {
+        interval: updateData.interval,
+        isActive: updateData.isActive,
+        lastPublishedAt: updateData.lastPublishedAt,
+        pageSize: updateData.pageSize,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Error updating cron job data for ${cronJobName}: ${error.message}`,
+      );
+      throw error;
+    }
   }
 }

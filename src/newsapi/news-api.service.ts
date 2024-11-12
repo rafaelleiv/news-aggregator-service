@@ -5,8 +5,9 @@ import * as console from 'node:console';
 import { ConfigService } from '@nestjs/config';
 import slugify from 'slugify';
 import { NewsImporterPort } from '../common/ports/news-importer.port';
-import { NewsRepositoryPort } from '../common/ports/news-repository.port';
+import { CronRepositoryPort } from '../common/ports/cron-repository.port';
 import axios from 'axios';
+import { ArticleRepositoryPort } from '../common/ports/article-repository.port';
 
 interface ArticleFromApi {
   title: string;
@@ -23,13 +24,9 @@ export class NewsApiService implements NewsImporterPort {
   private readonly logger = new Logger(NewsApiService.name);
   private readonly newsApiUrl = this.configService.get<string>('NEWS_API_URL');
   private readonly apiKey = this.configService.get<string>('NEWS_API_KEY');
-  private readonly newsCountLimit = this.configService.get<number>(
-    'NEWS_API_LIMIT_BY_CALL',
-  );
 
   /**
    * Constructor for NewsApiService.
-   * @param prismaService - The Prisma service for database operations.
    * @param websocketsGateway - The Websockets gateway for real-time communication.
    * @param configService - The configuration service for accessing environment variables.
    * @param newsRepository - The news repository service for database operations.
@@ -37,7 +34,8 @@ export class NewsApiService implements NewsImporterPort {
   constructor(
     private readonly websocketsGateway: WebsocketsGateway,
     private readonly configService: ConfigService,
-    private readonly newsRepository: NewsRepositoryPort,
+    private readonly newsRepository: CronRepositoryPort,
+    private readonly articleRepository: ArticleRepositoryPort,
   ) {
     if (!this.newsApiUrl) {
       throw new Error('NEWS_API_URL is not defined in environment variables');
@@ -48,9 +46,8 @@ export class NewsApiService implements NewsImporterPort {
   }
 
   /**
-   * Imports news articles from an external service and saves them to the database.
-   * @param cronName - The name of the cron job.
-   * @param lastPublishedArticleDate - The date of the last published article.
+   * Imports news articles from an external service.
+   * @param cron - The state of the cron job.
    */
   async importNews(cron: JobState): Promise<void> {
     const apiResponse = await this.fetchNewsFromExternalService(cron);
@@ -100,7 +97,7 @@ export class NewsApiService implements NewsImporterPort {
         views: 0,
       };
     });
-    // await this.newsRepository.saveArticles(articlesToSave);
+    await this.articleRepository.saveArticles(articlesToSave);
 
     // Update job state in database
     const latestDate = newArticles.length
@@ -131,9 +128,8 @@ export class NewsApiService implements NewsImporterPort {
   }
 
   /**
-   * Fetches news articles from an external service.
-   * @param lastPublishedArticleDate - The date of the last published article.
-   * @returns The response from the external service.
+   * Fetches news from an external service.
+   * @param cron - The state of the cron job.
    */
   private async fetchNewsFromExternalService(cron: JobState) {
     const { page, pageSize } = cron || {

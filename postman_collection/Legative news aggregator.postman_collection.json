@@ -63,6 +63,42 @@
 						}
 					},
 					"response": []
+				},
+				{
+					"name": "Update Cron Job",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"interval\": \"10m\",\n    \"lastPublishedAt\": \"2023-01-01T00:00:00.000Z\",\n    \"page\": 1,\n    \"pageSize\": 20,\n    \"isActive\": true\n}"
+						},
+						"url": {
+							"raw": "localhost:3001/cron/:cronJobName",
+							"host": [
+								"localhost"
+							],
+							"port": "3001",
+							"path": [
+								"cron",
+								":cronJobName"
+							],
+							"variable": [
+								{
+									"key": "cronJobName",
+									"value": "newsUpdate"
+								}
+							]
+						},
+						"description": "Updates the specified fields of a cron job. Replace `cronJobName` in the URL with the actual name of the cron job you want to update."
+					},
+					"response": []
 				}
 			],
 			"description": "Manage the cron tha runs over the news api external source of articles"

@@ -1,11 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { NewsRepositoryPort } from '../ports/news-repository.port';
-import { Article, JobState, State, Topic } from '../../../prisma/interfaces';
+import { CronRepositoryPort } from '../ports/cron-repository.port';
+import { JobState } from '../../../prisma/interfaces';
 
 @Injectable()
-export class NewsRepositoryService implements NewsRepositoryPort {
-  private readonly logger = new Logger(NewsRepositoryService.name);
+export class CronRepositoryService implements CronRepositoryPort {
+  private readonly logger = new Logger(CronRepositoryService.name);
 
   /**
    * Constructor for NewsRepositoryService.
@@ -50,45 +50,6 @@ export class NewsRepositoryService implements NewsRepositoryPort {
       );
       throw error;
     }
-  }
-
-  /**
-   * Saves a list of articles to the database.
-   * @param articles - The list of articles to save.
-   */
-  async saveArticles(articles: Article[]): Promise<void> {
-    this.logger.debug(`Saving articles`);
-    try {
-      const existingArticles = await this.prisma.article.findMany({
-        where: { slug: { in: articles.map((article) => article.slug) } },
-      });
-      const articlesToSave = articles.filter(
-        (article) =>
-          !existingArticles.some((existing) => existing.slug === article.slug),
-      );
-      await this.prisma.article.createMany({ data: articlesToSave });
-    } catch (error) {
-      this.logger.error(`Error saving articles`);
-      throw error;
-    }
-  }
-
-  /**
-   * Retrieves a list of states.
-   * @returns A list of states.
-   */
-  getStates(): Promise<State[]> {
-    this.logger.debug(`Getting states`);
-    return this.prisma.state.findMany();
-  }
-
-  /**
-   * Retrieves a list of topics.
-   * @returns A list of topics.
-   */
-  getTopics(): Promise<Topic[]> {
-    this.logger.debug(`Getting topics`);
-    return this.prisma.topic.findMany();
   }
 
   /**
@@ -141,6 +102,31 @@ export class NewsRepositoryService implements NewsRepositoryPort {
       });
     } catch (error) {
       this.logger.error(`Error deactivating cron job: ${cronJobName}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Updates the specified fields of a cron job.
+   * @param cronJobName - The name of the cron job.
+   * @param updateData - An object containing the fields to update.
+   */
+  async updateCronJobDataByName(
+    cronJobName: string,
+    updateData: Partial<JobState>,
+  ): Promise<void> {
+    this.logger.debug(`Updating cron job data for: ${cronJobName}`);
+    try {
+      await this.prisma.jobState.update({
+        where: { name: cronJobName },
+        data: {
+          ...updateData,
+          updatedAt: new Date(),
+        },
+      });
+      this.logger.log(`Cron job ${cronJobName} updated successfully`);
+    } catch (error) {
+      this.logger.error(`Error updating cron job data for: ${cronJobName}`);
       throw error;
     }
   }

@@ -5,11 +5,13 @@ import { WebsocketsGateway } from '../websockets/websockets.gateway';
 import { ConfigService } from '@nestjs/config';
 import { CronService } from './cron/cron.service';
 import { ScheduleModule, SchedulerRegistry } from '@nestjs/schedule';
-import { NewsRepositoryService } from '../common/news-repository/news-repository.service';
 import { NewsApiController } from './newsApiController';
-import { CronServicePort } from '../common/ports/cron.port';
+import { CronServicePort } from '../common/ports/cron-service.port';
 import { NewsImporterPort } from '../common/ports/news-importer.port';
-import { NewsRepositoryPort } from '../common/ports/news-repository.port';
+import { CronRepositoryPort } from '../common/ports/cron-repository.port';
+import { CronRepositoryService } from '../common/repositories/cron-repository.service';
+import { ArticleRepositoryPort } from '../common/ports/article-repository.port';
+import { ArticleRepositoryService } from '../common/repositories/article-repository.service';
 
 @Module({
   imports: [ScheduleModule.forRoot()],
@@ -20,7 +22,11 @@ import { NewsRepositoryPort } from '../common/ports/news-repository.port';
     WebsocketsGateway,
     ConfigService,
     SchedulerRegistry,
-    { provide: NewsRepositoryPort, useClass: NewsRepositoryService },
+    { provide: CronRepositoryPort, useClass: CronRepositoryService },
+    {
+      provide: ArticleRepositoryPort,
+      useClass: ArticleRepositoryService,
+    },
   ],
   controllers: [NewsApiController],
 })
