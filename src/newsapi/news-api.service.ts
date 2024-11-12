@@ -7,6 +7,18 @@ import { Article } from '@prisma/client';
 import * as console from 'node:console';
 import { ConfigService } from '@nestjs/config';
 import { buildQuery } from '../common/utils';
+import { NewsRepositoryService } from '../common/news-repository/news-repository.service';
+import slugify from 'slugify';
+
+interface ArticleFromApi {
+  title: string;
+  description: string;
+  url: string;
+  urlToImage: string;
+  publishedAt: string;
+  source: { name: string };
+  author: string;
+}
 
 @Injectable()
 export class NewsApiService implements INewsImporter {
@@ -25,6 +37,7 @@ export class NewsApiService implements INewsImporter {
     private readonly prismaService: PrismaService,
     private readonly websocketsGateway: WebsocketsGateway,
     private readonly configService: ConfigService,
+    private readonly newsRepository: NewsRepositoryService,
   ) {
     if (!this.newsApiUrl) {
       throw new Error('NEWS_API_URL is not defined in environment variables');
@@ -34,37 +47,50 @@ export class NewsApiService implements INewsImporter {
     }
   }
 
-  async importNews(): Promise<void> {
-    const apiResponse = await this.fetchNewsFromExternalService();
+  async importNews(lastPublishedArticleDate: string): Promise<void> {
+    const apiResponse = await this.fetchNewsFromExternalService(
+      lastPublishedArticleDate,
+    );
     const newsData = apiResponse.data;
     console.log('News data', newsData);
-    // for (const news of newsData) {
-    //   // await this.prisma.article.create({
-    //   //   data: {
-    //   //     title: news.title,
-    //   //     slug: slugify(news.title, { lower: true, strict: true }),
-    //   //     summary: news.summary,
-    //   //     topics: { connect: news.topics.map((id: any) => ({ id })) },
-    //   //     states: { connect: news.states.map((id: any) => ({ id })) },
-    //   //     image: news.image,
-    //   //     link: news.link,
-    //   //     views: 0,
-    //   //     authorName: news.author,
-    //   //     publishedAt: news.date,
-    //   //   },
-    //   // });
-    // }
+    if (!newsData || !newsData.status || newsData.status !== 'ok') {
+      this.logger.error('Error fetching news from external service');
+      return;
+    }
+
+    const articles = newsData.articles;
+    if (!articles || articles.length === 0) {
+      this.logger.warn('No news found');
+      return;
+    }
+
+    // Save articles to database
+    const articlesToSave = articles.map((article: ArticleFromApi) => {
+      const {
+        title,
+        description,
+        url,
+        urlToImage,
+        publishedAt,
+        source,
+        author,
+      } = article;
+      return {
+        title,
+        description,
+        url,
+        imageUrl: urlToImage,
+        publishedAt,
+        source: source.name,
+        author,
+        slug: slugify(title, { lower: true, strict: true }),
+        views: 0,
+      };
+    });
+    // await this.newsRepository.saveArticles(articlesToSave);
 
     // Send notification to clients
-    this.sendNotification(newsData);
-  }
-
-  async detectTopics(): Promise<{ topics: string[] }> {
-    throw new Error('Method not implemented.');
-  }
-
-  async detectStates(): Promise<{ states: string[] }> {
-    throw new Error('Method not implemented.');
+    // this.sendNotification(newsData);
   }
 
   sendNotification(article: Article): void {
@@ -72,10 +98,12 @@ export class NewsApiService implements INewsImporter {
     throw new Error('Method not implemented.');
   }
 
-  private async fetchNewsFromExternalService() {
-    const newArticlesDateLimit = new Date(
-      Date.now() - this.daysAgo * 24 * 60 * 60 * 1000,
-    );
+  private async fetchNewsFromExternalService(lastPublishedArticleDate: string) {
+    if (!lastPublishedArticleDate) {
+      lastPublishedArticleDate = new Date(
+        Date.now() - 2 * 24 * 60 * 60 * 1000, // 2 days ago by default
+      ).toISOString();
+    }
 
     const q = buildQuery(this.topics.split(','));
 
@@ -83,7 +111,7 @@ export class NewsApiService implements INewsImporter {
       const newsData = await axios.get(this.newsApiUrl, {
         params: {
           q,
-          from: newArticlesDateLimit.toISOString(),
+          from: lastPublishedArticleDate,
           to: new Date().toISOString(),
           sortBy: 'popularity',
           apiKey: this.apiKey,

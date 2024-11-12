@@ -1,6 +1,4 @@
 export interface INewsImporter {
-  importNews(): Promise<void>;
-  detectTopics(newsData: any): Promise<{ topics: string[] }>;
-  detectStates(newsData: any): Promise<{ states: string[] }>;
+  importNews(lastPublishedArticleDate: string): Promise<void>;
   sendNotification(newsData: any): void;
 }

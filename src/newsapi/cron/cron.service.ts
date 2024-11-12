@@ -5,6 +5,7 @@ import { convertIntervalToCronScheduleValue } from '../../common/utils';
 import { ConfigService } from '@nestjs/config';
 import { CronJob } from 'cron';
 import { NewsApiService } from '../news-api.service';
+import { NewsRepositoryService } from '../../common/news-repository/news-repository.service';
 
 @Injectable()
 export class CronService implements ICronInterface {
@@ -18,6 +19,7 @@ export class CronService implements ICronInterface {
     private readonly newsApiService: NewsApiService,
     private readonly schedulerRegistry: SchedulerRegistry,
     private readonly configService: ConfigService,
+    private readonly newsRepository: NewsRepositoryService,
   ) {
     this.startCron();
   }
@@ -36,7 +38,8 @@ export class CronService implements ICronInterface {
     const job = new CronJob(this.cronScheduleValue, async () => {
       this.logger.log(`Cron job ${this.name} is running...`);
       try {
-        await this.newsApiService.importNews();
+        const lastPublishedNews = await this.getLastPublishedNewsByCronJob();
+        await this.newsApiService.importNews(lastPublishedNews);
       } catch (error) {
         this.logger.error(
           `Error running cron job ${this.name}: ${error.message}`,
@@ -59,5 +62,12 @@ export class CronService implements ICronInterface {
     } else {
       this.logger.warn(`Cron job ${this.name} not found`);
     }
+  }
+
+  private async getLastPublishedNewsByCronJob(): Promise<any> {
+    return (
+      (await this.newsRepository.getLastPublishedNewsByCronJob(this.name)) ||
+      null
+    );
   }
 }

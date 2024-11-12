@@ -4,9 +4,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { WebsocketsGateway } from '../websockets/websockets.gateway';
 import { ConfigService } from '@nestjs/config';
 import { CronService } from './cron/cron.service';
-import { SchedulerRegistry } from '@nestjs/schedule';
+import { ScheduleModule, SchedulerRegistry } from '@nestjs/schedule';
+import { NewsRepositoryService } from '../common/news-repository/news-repository.service';
+import { NewsApiController } from './newsApiController';
 
 @Module({
+  imports: [ScheduleModule.forRoot()],
   providers: [
     CronService,
     NewsApiService,
@@ -14,6 +17,8 @@ import { SchedulerRegistry } from '@nestjs/schedule';
     WebsocketsGateway,
     ConfigService,
     SchedulerRegistry,
+    NewsRepositoryService,
   ],
+  controllers: [NewsApiController],
 })
 export class NewsApiModule {}

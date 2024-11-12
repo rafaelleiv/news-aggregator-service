@@ -14,16 +14,15 @@ model Article {
   publishedAt DateTime
   summary     String?
   link        String?
+  topics      Topic[]  @relation("ArticleTopics")
+  states      State[]  @relation("ArticleStates")
   authorId    Int?
+  author      User?    @relation(fields: [authorId], references: [id])
   authorName  String?
   views       Int      @default(0)
   image       String?
   slug        String   @unique
-  author      User?    @relation(fields: [authorId], references: [id])
-  states      State[]  @relation("ArticleStates")
-  topics      Topic[]  @relation("ArticleTopics")
-
-  @@index([authorId], map: "Article_authorId_fkey")
+  source      String?
 }
 
 model State {
@@ -31,14 +30,14 @@ model State {
   name            String            @unique
   code            String            @unique
   articles        Article[]         @relation("ArticleStates")
-  userPreferences UserPreferences[] @relation("StateToUserPreferences")
+  userPreferences UserPreferences[]
 }
 
 model Topic {
   id              Int               @id @default(autoincrement())
   name            String            @unique
   articles        Article[]         @relation("ArticleTopics")
-  userPreferences UserPreferences[] @relation("TopicToUserPreferences")
+  userPreferences UserPreferences[]
 }
 
 model User {
@@ -46,14 +45,21 @@ model User {
   email       String           @unique
   name        String?
   image       String?
-  articles    Article[]
   preferences UserPreferences?
+  articles    Article[]
 }
 
 model UserPreferences {
   id          Int     @id @default(autoincrement())
   userId      Int     @unique
+  savedStates State[]
+  savedTopics Topic[]
   user        User    @relation(fields: [userId], references: [id])
-  savedStates State[] @relation("StateToUserPreferences")
-  savedTopics Topic[] @relation("TopicToUserPreferences")
+}
+
+model JobState {
+  id              Int       @id @default(autoincrement())
+  name            String    @unique
+  lastPublishedAt DateTime?
+  updatedAt       DateTime  @updatedAt
 }
