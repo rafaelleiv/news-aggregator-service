@@ -32,20 +32,20 @@ export class NewsApiController implements IServicesController {
     }
   }
 
-  @Post('pause')
+  @Post('stop')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Pause the cron job for fetching news' })
-  @ApiResponse({ status: 200, description: 'Cron job paused successfully' })
+  @ApiOperation({ summary: 'Stop the cron job for fetching news' })
+  @ApiResponse({ status: 200, description: 'Cron job stopped successfully' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  async pauseCron(@Res() res: Response) {
+  async stopCron(@Res() res: Response) {
     try {
       this.cronService.stopCron();
-      this.logger.log('Cron job paused successfully');
+      this.logger.log('Cron job stopped successfully');
       return res
         .status(HttpStatus.OK)
-        .json({ message: 'Cron job paused successfully' });
+        .json({ message: 'Cron job stopped successfully' });
     } catch (error) {
-      this.logger.error('Failed to pause cron job', error.stack);
+      this.logger.error('Failed to stopped cron job', error.stack);
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         message: 'Failed to pause cron job',
         error: error.message,

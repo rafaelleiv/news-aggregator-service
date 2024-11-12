@@ -1,0 +1,71 @@
+{
+	"info": {
+		"_postman_id": "0e61195a-0cd3-4eca-a085-91a0872dddc4",
+		"name": "Legislative news aggregator",
+		"description": "Endpoints to start and pause the cron job for fetching news.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "2799667"
+	},
+	"item": [
+		{
+			"name": "News Api Source",
+			"item": [
+				{
+					"name": "Start Cron Job",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:3001/newsapi/start",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3001",
+							"path": [
+								"newsapi",
+								"start"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Stop Cron Job",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:3001/api/v1/newsapi/stop",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3001",
+							"path": [
+								"api",
+								"v1",
+								"newsapi",
+								"stop"
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"description": "Manage the cron tha runs over the news api external source of articles"
+		}
+	]
+}
