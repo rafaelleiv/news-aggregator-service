@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { INewsImporter } from '../common/interfaces/news-importer.interface';
 import { PrismaService } from '../prisma/prisma.service';
 import { WebsocketsGateway } from '../websockets/websockets.gateway';
 import axios from 'axios';
@@ -7,8 +6,9 @@ import { Article } from '@prisma/client';
 import * as console from 'node:console';
 import { ConfigService } from '@nestjs/config';
 import { buildQuery } from '../common/utils';
-import { NewsRepositoryService } from '../common/news-repository/news-repository.service';
 import slugify from 'slugify';
+import { NewsImporterPort } from '../common/ports/news-importer.port';
+import { NewsRepositoryPort } from '../common/ports/news-repository.port';
 
 interface ArticleFromApi {
   title: string;
@@ -21,7 +21,7 @@ interface ArticleFromApi {
 }
 
 @Injectable()
-export class NewsApiService implements INewsImporter {
+export class NewsApiService implements NewsImporterPort {
   private readonly logger = new Logger(NewsApiService.name);
   private readonly newsApiUrl = this.configService.get<string>('NEWS_API_URL');
   private readonly topics =
@@ -42,7 +42,7 @@ export class NewsApiService implements INewsImporter {
     private readonly prismaService: PrismaService,
     private readonly websocketsGateway: WebsocketsGateway,
     private readonly configService: ConfigService,
-    private readonly newsRepository: NewsRepositoryService,
+    private readonly newsRepository: NewsRepositoryPort,
   ) {
     if (!this.newsApiUrl) {
       throw new Error('NEWS_API_URL is not defined in environment variables');

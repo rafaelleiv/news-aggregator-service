@@ -1,15 +1,15 @@
 import { Controller, HttpCode, HttpStatus, Logger, Post, Res } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
-import { CronService } from './cron/cron.service';
-import { IServicesController } from '../common/interfaces/services-controller.interface';
+import { ControllerPort } from '../common/ports/services-controller.port';
+import { CronServicePort } from '../common/ports/cron.port';
 
 @ApiTags('News API Cron Jobs')
 @Controller('newsapi')
-export class NewsApiController implements IServicesController {
+export class NewsApiController implements ControllerPort {
   private readonly logger = new Logger(NewsApiController.name);
 
-  constructor(private readonly cronService: CronService) {}
+  constructor(private readonly cronService: CronServicePort) {}
 
   @Post('start')
   @HttpCode(HttpStatus.OK)

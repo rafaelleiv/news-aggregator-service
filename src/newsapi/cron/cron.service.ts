@@ -1,14 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ICronInterface } from '../../common/interfaces/cron.interface';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { convertIntervalToCronScheduleValue } from '../../common/utils';
 import { ConfigService } from '@nestjs/config';
 import { CronJob } from 'cron';
-import { NewsApiService } from '../news-api.service';
-import { NewsRepositoryService } from '../../common/news-repository/news-repository.service';
+import { CronServicePort } from '../../common/ports/cron.port';
+import { NewsImporterPort } from '../../common/ports/news-importer.port';
+import { NewsRepositoryPort } from '../../common/ports/news-repository.port';
 
 @Injectable()
-export class CronService implements ICronInterface {
+export class CronService implements CronServicePort {
   private readonly name = 'news-api-cron';
   private readonly logger = new Logger(CronService.name);
   private readonly cronScheduleValue = convertIntervalToCronScheduleValue(
@@ -16,10 +16,10 @@ export class CronService implements ICronInterface {
   );
 
   constructor(
-    private readonly newsApiService: NewsApiService,
+    private readonly newsApiService: NewsImporterPort,
     private readonly schedulerRegistry: SchedulerRegistry,
     private readonly configService: ConfigService,
-    private readonly newsRepository: NewsRepositoryService,
+    private readonly newsRepository: NewsRepositoryPort,
   ) {
     this.startCron();
   }

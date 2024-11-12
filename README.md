@@ -180,3 +180,11 @@ To avoid duplicating articles imported from the external API:
 3. **Testing**: The project is designed to allow isolated unit and integration testing of each functionality, simplifying maintenance and code expansion.
 4. **Swagger Documentation**: The API is automatically documented with Swagger, making it easy for developers to use and integrate.
 5. **Environment Variables**: Be sure to use environment variables in production to avoid exposing sensitive configurations.
+
+## TODO
+- [ ] Add tests for the WebSocket service
+- [ ] Implement a retry mechanism for failed WebSocket connections
+- [ ] Add more detailed error handling for the cron job service
+- [ ] Finish implementing web sockets for real-time notifications
+- [ ] Ad CICD pipeline for automated testing and deployment
+- [ ] Add husky and lint-staged for pre-commit checks

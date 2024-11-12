@@ -1,20 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Article } from '@prisma/client';
-
-export interface INewsRepositoryPort {
-  getLastPublishedNewsByCronJob(cronJobName: string): Promise<any>;
-
-  saveLastPublishedNewsByCronJob(
-    cronJobName: string,
-    lastPublishedNewsDate: string,
-  ): Promise<void>;
-
-  saveArticles(articles: Article[]): Promise<void>;
-}
+import { NewsRepositoryPort } from '../ports/news-repository.port';
 
 @Injectable()
-export class NewsRepositoryService implements INewsRepositoryPort {
+export class NewsRepositoryService implements NewsRepositoryPort {
   private readonly logger = new Logger(NewsRepositoryService.name);
 
   constructor(private readonly prisma: PrismaService) {}
