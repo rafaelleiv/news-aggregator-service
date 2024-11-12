@@ -1,0 +1,59 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Article {
+  id          Int      @id @default(autoincrement())
+  title       String
+  publishedAt DateTime
+  summary     String?
+  link        String?
+  authorId    Int?
+  authorName  String?
+  views       Int      @default(0)
+  image       String?
+  slug        String   @unique
+  author      User?    @relation(fields: [authorId], references: [id])
+  states      State[]  @relation("ArticleStates")
+  topics      Topic[]  @relation("ArticleTopics")
+
+  @@index([authorId], map: "Article_authorId_fkey")
+}
+
+model State {
+  id              Int               @id @default(autoincrement())
+  name            String            @unique
+  code            String            @unique
+  articles        Article[]         @relation("ArticleStates")
+  userPreferences UserPreferences[] @relation("StateToUserPreferences")
+}
+
+model Topic {
+  id              Int               @id @default(autoincrement())
+  name            String            @unique
+  articles        Article[]         @relation("ArticleTopics")
+  userPreferences UserPreferences[] @relation("TopicToUserPreferences")
+}
+
+model User {
+  id          Int              @id @default(autoincrement())
+  email       String           @unique
+  name        String?
+  image       String?
+  articles    Article[]
+  preferences UserPreferences?
+}
+
+model UserPreferences {
+  id          Int     @id @default(autoincrement())
+  userId      Int     @unique
+  user        User    @relation(fields: [userId], references: [id])
+  savedStates State[] @relation("StateToUserPreferences")
+  savedTopics Topic[] @relation("TopicToUserPreferences")
+}
