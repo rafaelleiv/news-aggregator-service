@@ -31,6 +31,13 @@ export class NewsApiService implements INewsImporter {
     'NEWS_API_LIMIT_BY_CALL',
   );
 
+  /**
+   * Constructor for NewsApiService.
+   * @param prismaService - The Prisma service for database operations.
+   * @param websocketsGateway - The Websockets gateway for real-time communication.
+   * @param configService - The configuration service for accessing environment variables.
+   * @param newsRepository - The news repository service for database operations.
+   */
   constructor(
     private readonly prismaService: PrismaService,
     private readonly websocketsGateway: WebsocketsGateway,
@@ -45,7 +52,15 @@ export class NewsApiService implements INewsImporter {
     }
   }
 
-  async importNews(lastPublishedArticleDate: string): Promise<void> {
+  /**
+   * Imports news articles from an external service and saves them to the database.
+   * @param cronName - The name of the cron job.
+   * @param lastPublishedArticleDate - The date of the last published article.
+   */
+  async importNews(
+    cronName: string,
+    lastPublishedArticleDate: string,
+  ): Promise<void> {
     const apiResponse = await this.fetchNewsFromExternalService(
       lastPublishedArticleDate,
     );
@@ -87,15 +102,38 @@ export class NewsApiService implements INewsImporter {
     });
     await this.newsRepository.saveArticles(articlesToSave);
 
+    // Save last published article date to database
+    lastPublishedArticleDate = articles.sort(
+      (
+        a: { publishedAt: string | number | Date },
+        b: { publishedAt: string | number | Date },
+      ) =>
+        new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime(),
+    )[0].publishedAt;
+
+    await this.newsRepository.saveLastPublishedNewsByCronJob(
+      cronName,
+      lastPublishedArticleDate,
+    );
+
     // Send notification to clients
     // this.sendNotification(newsData);
   }
 
+  /**
+   * Sends a notification to clients about a new article.
+   * @param article - The article to notify about.
+   */
   sendNotification(article: Article): void {
     console.log('Sending notification to clients', article);
     throw new Error('Method not implemented.');
   }
 
+  /**
+   * Fetches news articles from an external service.
+   * @param lastPublishedArticleDate - The date of the last published article.
+   * @returns The response from the external service.
+   */
   private async fetchNewsFromExternalService(lastPublishedArticleDate: string) {
     if (!lastPublishedArticleDate) {
       lastPublishedArticleDate = new Date(

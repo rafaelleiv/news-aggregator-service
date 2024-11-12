@@ -49,8 +49,15 @@ export class NewsRepositoryService implements INewsRepositoryPort {
     try {
       await this.prisma.jobState.upsert({
         where: { name: cronJobName },
-        update: { lastPublishedAt: lastPublishedNewsDate },
-        create: { name: cronJobName, lastPublishedAt: lastPublishedNewsDate },
+        update: {
+          lastPublishedAt: lastPublishedNewsDate,
+          updatedAt: new Date(),
+        },
+        create: {
+          name: cronJobName,
+          lastPublishedAt: lastPublishedNewsDate,
+          updatedAt: new Date(),
+        },
       });
     } catch (error) {
       this.logger.error(
@@ -66,8 +73,23 @@ export class NewsRepositoryService implements INewsRepositoryPort {
     );
 
     try {
+      // validate articles by checking the slug against the database to avoid duplicates
+      const existingArticles = await this.prisma.article.findMany({
+        where: {
+          OR: articles.map((article) => ({ slug: article.slug })),
+        },
+      });
+
+      // save only the articles that are not already in the database
+      const articlesToSave = articles.filter(
+        (article) =>
+          !existingArticles.some(
+            (existingArticle) => existingArticle.slug === article.slug,
+          ),
+      );
+
       await this.prisma.article.createMany({
-        data: articles,
+        data: articlesToSave,
       });
     } catch (error) {
       this.logger.error(

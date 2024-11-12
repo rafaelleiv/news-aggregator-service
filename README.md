@@ -1,99 +1,182 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+Here's the `README.md` in English with detailed descriptions of the project's features, including strategies to prevent duplicates, cron job management, and overall project structure:
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+---
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+# Legislative News API
 
 ## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+This project is a NestJS-based API for managing legislative news, integrating with external APIs to import articles, handling cron jobs for scheduled tasks, real-time notifications via WebSockets, and modular design to maintain a scalable and organized solution.
 
-## Project setup
+## Features
 
-```bash
-$ npm install
+- **Swagger API Documentation**: Automatically generated, detailed documentation of API endpoints, accessible at `/docs`.
+- **Cron Job Management**: Automated scheduling for news imports from external APIs, with dynamic control to start, pause, and remove jobs.
+- **Deduplication Strategy**: Stores the last published date, and each cron job query uses this date to fetch new articles, avoiding duplicates.
+- **Real-Time Notifications with WebSockets**: Notifies clients in real-time when new articles are published in topics they are subscribed to.
+- **Repository Pattern**: Manages database operations through a repository pattern, allowing isolated unit testing and clear separation of data access logic.
+- **Modular Architecture**: Each external API is handled in its own module, making the project scalable and maintainable.
+- **Centralized Configuration**: Environment variables to set intervals, external API details, and more.
+- **Unit and Integration Testing**: Test structure for each module, enabling isolated verification of each solution component.
+
+## Table of Contents
+
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Running the Application](#running-the-application)
+- [API Documentation](#api-documentation)
+- [Using WebSockets](#using-websockets)
+- [Running Tests](#running-tests)
+- [Project Structure](#project-structure)
+- [Deduplication Strategy](#deduplication-strategy)
+- [Best Practices and Considerations](#best-practices-and-considerations)
+
+## Prerequisites
+
+- Node.js v14 or later
+- Docker (optional, recommended for development)
+- PostgreSQL or MySQL as the database
+
+## Installation
+
+1. Clone the repository:
+
+   ```bash
+   git clone <repository-url>
+   cd legislative-news-api
+   ```
+
+2. Install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+## Configuration
+
+1. Create a `.env` file in the project root directory:
+
+   ```plaintext
+   # Database
+   DATABASE_URL=mysql://<username>:<password>@localhost:3306/<database_name>
+
+   # External API configuration
+   NEWS_API_URL=<external_api_url>
+   NEWS_API_KEY=<api_key>
+
+   # Cron job intervals
+   NEWS_API_CRON_INTERVAL=10m
+   NEWS_API_LIMIT=100  # Maximum articles per query
+
+   # WebSocket configuration
+   WEBSOCKETS_PORT=3002
+
+   # Swagger
+   SWAGGER_TITLE=Legislative News API
+   SWAGGER_DESCRIPTION=API for managing legislative news
+   ```
+
+2. Configure `prisma/schema.prisma` with the database schema and run migrations:
+
+   ```bash
+   npx prisma migrate dev --name init
+   ```
+
+## Running the Application
+
+1. **Development**:
+
+   ```bash
+   npm run start:dev
+   ```
+
+2. **Production**:
+
+   ```bash
+   npm run build
+   npm run start:prod
+   ```
+
+3. **With Docker** (recommended for development and production):
+
+   ```bash
+   docker-compose up --build
+   ```
+
+## API Documentation
+
+Swagger-generated API documentation is available at:
+
+```
+http://localhost:3001/docs
 ```
 
-## Compile and run the project
+Swagger documents all available endpoints and their parameters.
+
+## Using WebSockets
+
+To receive real-time notifications for new articles:
+1. Connect to the WebSockets port specified in the environment variables.
+2. Subscribe to news topics (`news_topic`) to receive notifications in real-time when new articles are published in the database.
+
+## Running Tests
+
+### Unit Tests
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm run test
 ```
 
-## Run tests
+### Integration Tests
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm run test:e2e
 ```
 
-## Deployment
+Tests are configured to run against a testing environment in the database.
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+## Project Structure
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g mau
-$ mau deploy
+```plaintext
+src
+├── app.module.ts            # Main module
+├── common
+│   ├── interfaces            # Common interfaces
+│   └── news-repository       # Repository for news operations
+├── websockets                # WebSockets for real-time notifications
+├── newsapi                   # Module to integrate with the news API (https://newsapi.org)
+│   ├── cron                  # Cron job management service
+│   ├── news-api.controller.ts
+│   ├── news-api.service.ts
+│   └── cron.service.ts       # Cron service for the news API
+├── main.ts                   # Application and Swagger setup
+└── prisma
+    ├── migrations            # Prisma migrations
+    └── schema.prisma         # Prisma schema definition
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## Deduplication Strategy
 
-## Resources
+To avoid duplicating articles imported from the external API:
 
-Check out a few resources that may come in handy when working with NestJS:
+1. **Control Table**: A control table in the database stores the last published date (`lastPublishedDate`).
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+2. **Filtered Query**: The cron job fetching articles from the external API queries from this `lastPublishedDate` to the current date, and limits the results according to `NEWS_API_LIMIT`.
 
-## Support
+3. **Import Logic**:
+    - After each execution, `lastPublishedDate` in the database is updated.
+    - When the cron job runs again, the API will only return articles published after this date, reducing the chance of importing duplicates.
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+4. **Dynamic Configuration**: The start date and maximum article limit are defined in the `.env` file, simplifying customization and preventing duplicate imports.
+5. **Error Handling**: In case of errors, the cron job will retry the import, ensuring no data loss or duplication.
+6. **Slug validation**: Each article is validated against its slug to prevent importing the same article multiple times.
+7. **Manual Control**: The cron job can be paused, resumed, or removed manually, providing full control over the import process.
 
-## Stay in touch
+## Best Practices and Considerations
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+1. **Repository Pattern**: The repository pattern manages data access logic separately, facilitating testing.
+2. **Modularization**: Each external API has its own module, which keeps the project organized and scalable.
+3. **Testing**: The project is designed to allow isolated unit and integration testing of each functionality, simplifying maintenance and code expansion.
+4. **Swagger Documentation**: The API is automatically documented with Swagger, making it easy for developers to use and integrate.
+5. **Environment Variables**: Be sure to use environment variables in production to avoid exposing sensitive configurations.

@@ -39,7 +39,7 @@ export class CronService implements ICronInterface {
       this.logger.log(`Cron job ${this.name} is running...`);
       try {
         const lastPublishedNews = await this.getLastPublishedNewsByCronJob();
-        await this.newsApiService.importNews(lastPublishedNews);
+        await this.newsApiService.importNews(this.name, lastPublishedNews);
       } catch (error) {
         this.logger.error(
           `Error running cron job ${this.name}: ${error.message}`,
