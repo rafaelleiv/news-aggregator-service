@@ -8,7 +8,7 @@
 	},
 	"item": [
 		{
-			"name": "News Api Source",
+			"name": "News Api External Source",
 			"item": [
 				{
 					"name": "Start Cron Job",

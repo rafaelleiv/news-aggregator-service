@@ -8,6 +8,7 @@ import { NewsImporterPort } from '../common/ports/news-importer.port';
 import { CronRepositoryPort } from '../common/ports/cron-repository.port';
 import axios from 'axios';
 import { ArticleRepositoryPort } from '../common/ports/article-repository.port';
+import { Topic } from '../../prisma/interfaces';
 
 interface ArticleFromApi {
   title: string;
@@ -50,15 +51,22 @@ export class NewsApiService implements NewsImporterPort {
    * @param cron - The state of the cron job.
    */
   async importNews(cron: JobState): Promise<void> {
-    const apiResponse = await this.fetchNewsFromExternalService(cron);
+    // Set the default topic to 'general' if it doesn't exist
+    const topic: Topic =
+      await this.articleRepository.getOrCreateTopic('general');
+
+    const apiResponse = await this.fetchNewsFromExternalService(
+      cron,
+      topic.name,
+    );
     const newsData = apiResponse.data;
     if (!newsData || !newsData.status || newsData.status !== 'ok') {
       this.logger.error('Error fetching news from external service');
       return;
     }
 
-    const articles = newsData.articles;
-    if (!articles || articles.length === 0) {
+    const newArticles = newsData.articles;
+    if (!newArticles || newArticles.length === 0) {
       this.logger.log('No new articles. Resetting to page 1.');
       await this.newsRepository.updateCronJobData({
         ...cron,
@@ -68,12 +76,19 @@ export class NewsApiService implements NewsImporterPort {
       return;
     }
 
-    // Filter new articles based on last published date
-    const newArticles = articles.filter(
-      (article: any) =>
-        new Date(article.publishedAt) > new Date(cron.lastPublishedAt),
+    await this.saveIncomingArticles(newArticles, topic);
+
+    await this.updateJobStateInDatabase(newArticles, cron);
+
+    this.logger.log(
+      `Fetched ${newArticles.length} new articles. Updated job state.`,
     );
 
+    // Send notification to clients
+    // this.sendNotification(newsData);
+  }
+
+  private async saveIncomingArticles(newArticles: any, topic: Topic) {
     // Save articles to database
     const articlesToSave = newArticles.map((article: ArticleFromApi) => {
       const {
@@ -95,10 +110,13 @@ export class NewsApiService implements NewsImporterPort {
         author,
         slug: slugify(title, { lower: true, strict: true }),
         views: 0,
+        topics: [topic],
       };
     });
     await this.articleRepository.saveArticles(articlesToSave);
+  }
 
+  private async updateJobStateInDatabase(newArticles: any[], cron: JobState) {
     // Update job state in database
     const latestDate = newArticles.length
       ? new Date(newArticles[0].publishedAt)
@@ -109,13 +127,6 @@ export class NewsApiService implements NewsImporterPort {
       lastPublishedAt: latestDate,
       page: cron.page + 1,
     });
-
-    this.logger.log(
-      `Fetched ${newArticles.length} new articles. Updated job state.`,
-    );
-
-    // Send notification to clients
-    // this.sendNotification(newsData);
   }
 
   /**
@@ -131,22 +142,27 @@ export class NewsApiService implements NewsImporterPort {
    * Fetches news from an external service.
    * @param cron - The state of the cron job.
    */
-  private async fetchNewsFromExternalService(cron: JobState) {
+  private async fetchNewsFromExternalService(
+    cron: JobState,
+    topic: string,
+  ): Promise<any> {
     const { page, pageSize } = cron || {
       page: 1,
       pageSize: 10,
     };
 
     try {
-      return axios.get(this.newsApiUrl, {
-        params: {
-          apiKey: this.apiKey,
-          pageSize,
-          page,
-          country: 'us',
-          category: 'general',
-        },
-      });
+      const params = {
+        apiKey: this.apiKey,
+        pageSize,
+        page,
+        country: 'us',
+        category: topic.toLowerCase(),
+      };
+      this.logger.debug(
+        `Fetching news from external service: ${this.newsApiUrl} with params: ${JSON.stringify(params)}`,
+      );
+      return axios.get(this.newsApiUrl, { params });
     } catch (error) {
       console.error('Error fetching news from external service');
       console.error(error);

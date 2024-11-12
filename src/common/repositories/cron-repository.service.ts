@@ -82,7 +82,7 @@ export class CronRepositoryService implements CronRepositoryPort {
     try {
       await this.prisma.jobState.update({
         where: { name: cronJobName },
-        data: { isActive: true },
+        data: { isActive: true, page: 1 },
       });
     } catch (error) {
       this.logger.error(`Error activating cron job: ${cronJobName}`);
@@ -98,7 +98,7 @@ export class CronRepositoryService implements CronRepositoryPort {
     try {
       await this.prisma.jobState.update({
         where: { name: cronJobName },
-        data: { isActive: false },
+        data: { isActive: false, page: 1 },
       });
     } catch (error) {
       this.logger.error(`Error deactivating cron job: ${cronJobName}`);
