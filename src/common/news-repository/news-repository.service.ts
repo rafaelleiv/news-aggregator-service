@@ -1,90 +1,146 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Article } from '@prisma/client';
 import { NewsRepositoryPort } from '../ports/news-repository.port';
+import { Article, JobState, State, Topic } from '../../../prisma/interfaces';
 
 @Injectable()
 export class NewsRepositoryService implements NewsRepositoryPort {
   private readonly logger = new Logger(NewsRepositoryService.name);
 
+  /**
+   * Constructor for NewsRepositoryService.
+   * @param prisma - The Prisma service for database operations.
+   */
   constructor(private readonly prisma: PrismaService) {}
-  async getLastPublishedNewsByCronJob(cronJobName: string): Promise<any> {
-    this.logger.debug(
-      `[NewsRepositoryService][getLastPublishedNewsByCronJob]. Getting last published news by cron job name: ${cronJobName}`,
-    );
 
+  /**
+   * Retrieves cron job data by its name.
+   * @param cronJobName - The name of the cron job.
+   * @returns The state of the cron job.
+   */
+  async getCronJobDataByName(cronJobName: string): Promise<JobState> {
+    this.logger.debug(`Getting cron job data by name: ${cronJobName}`);
     try {
-      const jobState = await this.prisma.jobState.findUnique({
+      return await this.prisma.jobState.findUnique({
         where: { name: cronJobName },
-        select: { lastPublishedAt: true },
       });
-
-      return jobState?.lastPublishedAt;
     } catch (error) {
-      this.logger.error(
-        `[NewsRepositoryService][getLastPublishedNewsByCronJob]. Error getting last published news by cron job name: ${cronJobName}`,
-      );
+      this.logger.error(`Error getting cron job data by name: ${cronJobName}`);
       throw error;
     }
   }
 
-  async saveLastPublishedNewsByCronJob(
-    cronJobName: string,
-    lastPublishedNewsDate: string,
-  ): Promise<void> {
+  /**
+   * Updates the cron job data.
+   * @param cron - The state of the cron job.
+   */
+  async updateCronJobData(cron: JobState): Promise<void> {
     this.logger.debug(
-      `[NewsRepositoryService][saveLastPublishedNewsByCronJob]. Saving last published news by cron job name: ${cronJobName}`,
+      `Saving last published news by cron job name: ${cron.name}`,
     );
-
     try {
       await this.prisma.jobState.upsert({
-        where: { name: cronJobName },
-        update: {
-          lastPublishedAt: lastPublishedNewsDate,
-          updatedAt: new Date(),
-        },
-        create: {
-          name: cronJobName,
-          lastPublishedAt: lastPublishedNewsDate,
-          updatedAt: new Date(),
-        },
+        where: { name: cron.name },
+        update: { ...cron, updatedAt: new Date() },
+        create: { ...cron, updatedAt: new Date() },
       });
     } catch (error) {
       this.logger.error(
-        `[NewsRepositoryService][saveLastPublishedNewsByCronJob]. Error saving last published news by cron job name: ${cronJobName}`,
+        `Error saving last published news by cron job name: ${cron.name}`,
       );
       throw error;
     }
   }
 
+  /**
+   * Saves a list of articles to the database.
+   * @param articles - The list of articles to save.
+   */
   async saveArticles(articles: Article[]): Promise<void> {
-    this.logger.debug(
-      `[NewsRepositoryService][saveArticles]. Saving articles: ${articles}`,
-    );
-
+    this.logger.debug(`Saving articles`);
     try {
-      // validate articles by checking the slug against the database to avoid duplicates
       const existingArticles = await this.prisma.article.findMany({
-        where: {
-          OR: articles.map((article) => ({ slug: article.slug })),
-        },
+        where: { slug: { in: articles.map((article) => article.slug) } },
       });
-
-      // save only the articles that are not already in the database
       const articlesToSave = articles.filter(
         (article) =>
-          !existingArticles.some(
-            (existingArticle) => existingArticle.slug === article.slug,
-          ),
+          !existingArticles.some((existing) => existing.slug === article.slug),
       );
+      await this.prisma.article.createMany({ data: articlesToSave });
+    } catch (error) {
+      this.logger.error(`Error saving articles`);
+      throw error;
+    }
+  }
 
-      await this.prisma.article.createMany({
-        data: articlesToSave,
+  /**
+   * Retrieves a list of states.
+   * @returns A list of states.
+   */
+  getStates(): Promise<State[]> {
+    this.logger.debug(`Getting states`);
+    return this.prisma.state.findMany();
+  }
+
+  /**
+   * Retrieves a list of topics.
+   * @returns A list of topics.
+   */
+  getTopics(): Promise<Topic[]> {
+    this.logger.debug(`Getting topics`);
+    return this.prisma.topic.findMany();
+  }
+
+  /**
+   * Registers cron job data.
+   * @param cronJobName - The name of the cron job.
+   * @returns The state of the cron job.
+   */
+  async registerCronJobData(cronJobName: string): Promise<JobState> {
+    this.logger.debug(`Registering cron job data for: ${cronJobName}`);
+    try {
+      const existingJobState = await this.getCronJobDataByName(cronJobName);
+      if (existingJobState) return existingJobState;
+      return this.prisma.jobState.create({
+        data: {
+          name: cronJobName,
+          lastPublishedAt: new Date(Date.now() - 86400000).toISOString(),
+        },
       });
     } catch (error) {
-      this.logger.error(
-        `[NewsRepositoryService][saveArticles]. Error saving articles: ${articles}`,
-      );
+      this.logger.error(`Error registering cron job data for: ${cronJobName}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Activates a cron job.
+   * @param cronJobName - The name of the cron job.
+   */
+  async activateCronJob(cronJobName: string): Promise<void> {
+    try {
+      await this.prisma.jobState.update({
+        where: { name: cronJobName },
+        data: { isActive: true },
+      });
+    } catch (error) {
+      this.logger.error(`Error activating cron job: ${cronJobName}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Deactivates a cron job.
+   * @param cronJobName - The name of the cron job.
+   */
+  async deactivateCronJob(cronJobName: string): Promise<void> {
+    try {
+      await this.prisma.jobState.update({
+        where: { name: cronJobName },
+        data: { isActive: false },
+      });
+    } catch (error) {
+      this.logger.error(`Error deactivating cron job: ${cronJobName}`);
       throw error;
     }
   }

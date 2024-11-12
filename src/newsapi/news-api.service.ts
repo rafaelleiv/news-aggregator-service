@@ -1,14 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
 import { WebsocketsGateway } from '../websockets/websockets.gateway';
-import axios from 'axios';
-import { Article } from '@prisma/client';
+import { Article, JobState } from '@prisma/client';
 import * as console from 'node:console';
 import { ConfigService } from '@nestjs/config';
-import { buildQuery } from '../common/utils';
 import slugify from 'slugify';
 import { NewsImporterPort } from '../common/ports/news-importer.port';
 import { NewsRepositoryPort } from '../common/ports/news-repository.port';
+import axios from 'axios';
 
 interface ArticleFromApi {
   title: string;
@@ -24,8 +22,6 @@ interface ArticleFromApi {
 export class NewsApiService implements NewsImporterPort {
   private readonly logger = new Logger(NewsApiService.name);
   private readonly newsApiUrl = this.configService.get<string>('NEWS_API_URL');
-  private readonly topics =
-    this.configService.get<string>('NEWS_API_TOPICS') || '';
   private readonly apiKey = this.configService.get<string>('NEWS_API_KEY');
   private readonly newsCountLimit = this.configService.get<number>(
     'NEWS_API_LIMIT_BY_CALL',
@@ -39,7 +35,6 @@ export class NewsApiService implements NewsImporterPort {
    * @param newsRepository - The news repository service for database operations.
    */
   constructor(
-    private readonly prismaService: PrismaService,
     private readonly websocketsGateway: WebsocketsGateway,
     private readonly configService: ConfigService,
     private readonly newsRepository: NewsRepositoryPort,
@@ -57,15 +52,9 @@ export class NewsApiService implements NewsImporterPort {
    * @param cronName - The name of the cron job.
    * @param lastPublishedArticleDate - The date of the last published article.
    */
-  async importNews(
-    cronName: string,
-    lastPublishedArticleDate: string,
-  ): Promise<void> {
-    const apiResponse = await this.fetchNewsFromExternalService(
-      lastPublishedArticleDate,
-    );
+  async importNews(cron: JobState): Promise<void> {
+    const apiResponse = await this.fetchNewsFromExternalService(cron);
     const newsData = apiResponse.data;
-    console.log('News data', newsData);
     if (!newsData || !newsData.status || newsData.status !== 'ok') {
       this.logger.error('Error fetching news from external service');
       return;
@@ -73,12 +62,23 @@ export class NewsApiService implements NewsImporterPort {
 
     const articles = newsData.articles;
     if (!articles || articles.length === 0) {
-      this.logger.warn('No news found');
+      this.logger.log('No new articles. Resetting to page 1.');
+      await this.newsRepository.updateCronJobData({
+        ...cron,
+        page: 1,
+        lastPublishedAt: new Date(),
+      });
       return;
     }
 
+    // Filter new articles based on last published date
+    const newArticles = articles.filter(
+      (article: any) =>
+        new Date(article.publishedAt) > new Date(cron.lastPublishedAt),
+    );
+
     // Save articles to database
-    const articlesToSave = articles.map((article: ArticleFromApi) => {
+    const articlesToSave = newArticles.map((article: ArticleFromApi) => {
       const {
         title,
         description,
@@ -100,20 +100,21 @@ export class NewsApiService implements NewsImporterPort {
         views: 0,
       };
     });
-    await this.newsRepository.saveArticles(articlesToSave);
+    // await this.newsRepository.saveArticles(articlesToSave);
 
-    // Save last published article date to database
-    lastPublishedArticleDate = articles.sort(
-      (
-        a: { publishedAt: string | number | Date },
-        b: { publishedAt: string | number | Date },
-      ) =>
-        new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime(),
-    )[0].publishedAt;
+    // Update job state in database
+    const latestDate = newArticles.length
+      ? new Date(newArticles[0].publishedAt)
+      : cron.lastPublishedAt;
 
-    await this.newsRepository.saveLastPublishedNewsByCronJob(
-      cronName,
-      lastPublishedArticleDate,
+    await this.newsRepository.updateCronJobData({
+      ...cron,
+      lastPublishedAt: latestDate,
+      page: cron.page + 1,
+    });
+
+    this.logger.log(
+      `Fetched ${newArticles.length} new articles. Updated job state.`,
     );
 
     // Send notification to clients
@@ -134,25 +135,20 @@ export class NewsApiService implements NewsImporterPort {
    * @param lastPublishedArticleDate - The date of the last published article.
    * @returns The response from the external service.
    */
-  private async fetchNewsFromExternalService(lastPublishedArticleDate: string) {
-    if (!lastPublishedArticleDate) {
-      lastPublishedArticleDate = new Date(
-        Date.now() - 2 * 24 * 60 * 60 * 1000, // 2 days ago by default
-      ).toISOString();
-    }
-
-    const q = buildQuery(this.topics.split(','));
+  private async fetchNewsFromExternalService(cron: JobState) {
+    const { page, pageSize } = cron || {
+      page: 1,
+      pageSize: 10,
+    };
 
     try {
-      return await axios.get(this.newsApiUrl, {
+      return axios.get(this.newsApiUrl, {
         params: {
-          q,
-          from: lastPublishedArticleDate,
-          to: new Date().toISOString(),
-          sortBy: 'popularity',
           apiKey: this.apiKey,
-          pageSize: this.newsCountLimit,
-          language: 'en',
+          pageSize,
+          page,
+          country: 'us',
+          category: 'general',
         },
       });
     } catch (error) {

@@ -1,7 +1,6 @@
+import { JobState } from '@prisma/client';
+
 export abstract class NewsImporterPort {
-  abstract importNews(
-    cronName: string,
-    lastPublishedArticleDate: string,
-  ): Promise<void>;
+  abstract importNews(cron: JobState): Promise<void>;
   abstract sendNotification(newsData: any): void;
 }

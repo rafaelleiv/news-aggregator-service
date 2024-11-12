@@ -1,12 +1,19 @@
-import { Article } from '@prisma/client';
+import { Article, JobState, State, Topic } from '@prisma/client';
 
 export abstract class NewsRepositoryPort {
-  abstract getLastPublishedNewsByCronJob(cronJobName: string): Promise<any>;
+  abstract registerCronJobData(cronJobName: string): Promise<JobState>;
 
-  abstract saveLastPublishedNewsByCronJob(
-    cronJobName: string,
-    lastPublishedNewsDate: string,
-  ): Promise<void>;
+  abstract getCronJobDataByName(cronJobName: string): Promise<JobState>;
+
+  abstract updateCronJobData(cron: JobState): Promise<void>;
+
+  abstract activateCronJob(cronJobName: string): Promise<void>;
+
+  abstract deactivateCronJob(cronJobName: string): Promise<void>;
 
   abstract saveArticles(articles: Article[]): Promise<void>;
+
+  abstract getTopics(): Promise<Topic[]>;
+
+  abstract getStates(): Promise<State[]>;
 }

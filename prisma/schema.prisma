@@ -14,15 +14,17 @@ model Article {
   publishedAt DateTime
   summary     String?
   link        String?
-  topics      Topic[]  @relation("ArticleTopics")
-  states      State[]  @relation("ArticleStates")
   authorId    Int?
-  author      User?    @relation(fields: [authorId], references: [id])
   authorName  String?
   views       Int      @default(0)
   image       String?
   slug        String   @unique
   source      String?
+  author      User?    @relation(fields: [authorId], references: [id])
+  states      State[]  @relation("ArticleStates")
+  topics      Topic[]  @relation("ArticleTopics")
+
+  @@index([authorId], map: "Article_authorId_fkey")
 }
 
 model State {
@@ -30,14 +32,14 @@ model State {
   name            String            @unique
   code            String            @unique
   articles        Article[]         @relation("ArticleStates")
-  userPreferences UserPreferences[]
+  userPreferences UserPreferences[] @relation("StateToUserPreferences")
 }
 
 model Topic {
   id              Int               @id @default(autoincrement())
   name            String            @unique
   articles        Article[]         @relation("ArticleTopics")
-  userPreferences UserPreferences[]
+  userPreferences UserPreferences[] @relation("TopicToUserPreferences")
 }
 
 model User {
@@ -45,16 +47,16 @@ model User {
   email       String           @unique
   name        String?
   image       String?
-  preferences UserPreferences?
   articles    Article[]
+  preferences UserPreferences?
 }
 
 model UserPreferences {
   id          Int     @id @default(autoincrement())
   userId      Int     @unique
-  savedStates State[]
-  savedTopics Topic[]
   user        User    @relation(fields: [userId], references: [id])
+  savedStates State[] @relation("StateToUserPreferences")
+  savedTopics Topic[] @relation("TopicToUserPreferences")
 }
 
 model JobState {
@@ -62,4 +64,10 @@ model JobState {
   name            String    @unique
   lastPublishedAt DateTime?
   updatedAt       DateTime  @updatedAt
+  pageSize        Int?      @default(10)
+  page            Int?      @default(1)
+  /// The interval for cron job execution. Possible values: "1s" (1 second), "1m" (1 minute), "1h" (1 hour), "1d" (1 day). Defaults to "10m".
+  interval        String    @default("10m")
+  /// Indicates if the cron job is currently active.
+  isActive        Boolean   @default(false)
 }
