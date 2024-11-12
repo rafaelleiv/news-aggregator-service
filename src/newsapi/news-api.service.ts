@@ -24,8 +24,6 @@ interface ArticleFromApi {
 export class NewsApiService implements INewsImporter {
   private readonly logger = new Logger(NewsApiService.name);
   private readonly newsApiUrl = this.configService.get<string>('NEWS_API_URL');
-  private readonly daysAgo =
-    this.configService.get<number>('NEWS_API_DAYS_AGO') || 3;
   private readonly topics =
     this.configService.get<string>('NEWS_API_TOPICS') || '';
   private readonly apiKey = this.configService.get<string>('NEWS_API_KEY');
@@ -87,7 +85,7 @@ export class NewsApiService implements INewsImporter {
         views: 0,
       };
     });
-    // await this.newsRepository.saveArticles(articlesToSave);
+    await this.newsRepository.saveArticles(articlesToSave);
 
     // Send notification to clients
     // this.sendNotification(newsData);
@@ -108,7 +106,7 @@ export class NewsApiService implements INewsImporter {
     const q = buildQuery(this.topics.split(','));
 
     try {
-      const newsData = await axios.get(this.newsApiUrl, {
+      return await axios.get(this.newsApiUrl, {
         params: {
           q,
           from: lastPublishedArticleDate,
@@ -119,7 +117,6 @@ export class NewsApiService implements INewsImporter {
           language: 'en',
         },
       });
-      return newsData;
     } catch (error) {
       console.error('Error fetching news from external service');
       console.error(error);

@@ -24,6 +24,5 @@ export const convertIntervalToCronScheduleValue = (
 };
 
 export const buildQuery = (topics: string[]): string => {
-  const query = topics.map((topic) => `"${topic}"`).join(' OR ');
-  return query;
+  return topics.map((topic) => `"${topic}"`).join(' OR ');
 };
