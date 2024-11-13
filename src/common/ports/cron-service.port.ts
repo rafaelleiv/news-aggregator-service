@@ -2,8 +2,8 @@ import { JobState } from '../../../prisma/interfaces';
 import { UpdateCronJobDto } from '../dto/update-cron-job.dto';
 
 export abstract class CronServicePort {
-  abstract startCron(): void;
-  abstract stopCron(): void;
+  abstract startCron(): Promise<void>;
+  abstract stopCron(): Promise<void>;
   abstract cronAction(cron: JobState): Promise<void>;
 
   abstract updateCronJobDataByName(

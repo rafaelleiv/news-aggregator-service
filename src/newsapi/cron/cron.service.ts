@@ -1,6 +1,5 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { SchedulerRegistry } from '@nestjs/schedule';
-import { ConfigService } from '@nestjs/config';
 import { CronJob } from 'cron';
 import { CronServicePort } from '../../common/ports/cron-service.port';
 import { NewsImporterPort } from '../../common/ports/news-importer.port';
@@ -23,7 +22,6 @@ export class CronService implements CronServicePort, OnModuleDestroy {
   constructor(
     private readonly newsApiService: NewsImporterPort,
     private readonly schedulerRegistry: SchedulerRegistry,
-    private readonly configService: ConfigService,
     private readonly newsRepository: CronRepositoryPort,
   ) {
     this.registerAndStartCronJob().then();

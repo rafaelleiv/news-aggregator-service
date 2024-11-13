@@ -1,14 +1,4 @@
-import {
-  Body,
-  Controller,
-  HttpCode,
-  HttpStatus,
-  Logger,
-  Param,
-  Patch,
-  Post,
-  Res,
-} from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Logger, Param, Patch, Post, Res } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { ControllerPort } from '../common/ports/services-controller.port';
@@ -29,7 +19,7 @@ export class NewsApiController implements ControllerPort {
   @ApiResponse({ status: 500, description: 'Internal server error' })
   async startCron(@Res() res: Response) {
     try {
-      this.cronService.startCron();
+      await this.cronService.startCron();
       this.logger.log('Cron job started successfully');
       return res
         .status(HttpStatus.OK)
@@ -50,7 +40,7 @@ export class NewsApiController implements ControllerPort {
   @ApiResponse({ status: 500, description: 'Internal server error' })
   async stopCron(@Res() res: Response) {
     try {
-      this.cronService.stopCron();
+      await this.cronService.stopCron();
       this.logger.log('Cron job stopped successfully');
       return res
         .status(HttpStatus.OK)
@@ -73,14 +63,20 @@ export class NewsApiController implements ControllerPort {
   async updateCronJob(
     @Param('cronJobName') cronJobName: string,
     @Body() updateData: UpdateCronJobDto,
+    @Res() res: Response,
   ) {
     try {
       await this.cronService.updateCronJobDataByName(cronJobName, updateData);
       this.logger.log(`Cron job ${cronJobName} updated successfully`);
-      return { message: 'Cron job updated successfully' };
+      return res
+        .status(HttpStatus.OK)
+        .json({ message: 'Cron job updated successfully' });
     } catch (error) {
-      this.logger.error(`Failed to update cron job: ${error.message}`);
-      throw error;
+      this.logger.error(`Failed to update cron job`);
+      res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        message: 'Failed to update cron job',
+        error: error.message,
+      });
     }
   }
 
@@ -88,7 +84,6 @@ export class NewsApiController implements ControllerPort {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Execute the cron job immediately' })
   @ApiResponse({ status: 200, description: 'Cron job executed successfully' })
-  @ApiResponse({ status: 500, description: 'Internal server error' })
   async executeCronJob(
     @Param('cronJobName') cronJobName: string,
     @Res() res: Response,

@@ -24,7 +24,7 @@ export class NewsApiService implements NewsImporterPort {
   private readonly logger = new Logger(NewsApiService.name);
   private readonly newsApiUrl = this.configService.get<string>('NEWS_API_URL');
   private readonly apiKey = this.configService.get<string>('NEWS_API_KEY');
-  private topicsQueue: Topic[] = [];
+  private topicsQueue: Topic[];
 
   constructor(
     private readonly websocketsGateway: WebsocketsGateway,
@@ -35,13 +35,13 @@ export class NewsApiService implements NewsImporterPort {
     if (!this.newsApiUrl || !this.apiKey) {
       throw new Error('NEWS_API_URL or NEWS_API_KEY is not defined');
     }
-
+    this.topicsQueue = [];
     // Initialize category queue
     this.initializeTopicQueue().then();
   }
 
   private async initializeTopicQueue() {
-    this.topicsQueue = await this.articleRepository.getTopics();
+    this.topicsQueue = (await this.articleRepository.getTopics()) || [];
     if (this.topicsQueue.length === 0) {
       this.topicsQueue.push({
         id: 1,
@@ -160,17 +160,17 @@ export class NewsApiService implements NewsImporterPort {
   }
 
   validateIncomingData(data: ArticleFromApi): boolean {
-    return (
+    return Boolean(
       data.title &&
-      data.description &&
-      data.url &&
-      data.urlToImage &&
-      data.publishedAt &&
-      data.title.length > 0 &&
-      data.description.length > 0 &&
-      data.url.length > 0 &&
-      data.urlToImage.length > 0 &&
-      data.publishedAt.length > 0
+        data.description &&
+        data.url &&
+        data.urlToImage &&
+        data.publishedAt &&
+        data.title.length > 0 &&
+        data.description.length > 0 &&
+        data.url.length > 0 &&
+        data.urlToImage.length > 0 &&
+        data.publishedAt.length > 0,
     );
   }
 }
