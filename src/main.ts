@@ -44,7 +44,7 @@ async function bootstrap() {
   });
 
   // Start the server on the specified port
-  const port = process.env.PORT || 3001;
+  const port = process.env.NEST_API_PORT || 3001;
   await app.listen(port);
   Logger.log(`🚀 Application is running on: http://localhost:${port}/api/v1`);
   Logger.log(
