@@ -24,6 +24,7 @@ export class NewsApiService implements NewsImporterPort {
   private readonly logger = new Logger(NewsApiService.name);
   private readonly newsApiUrl = this.configService.get<string>('NEWS_API_URL');
   private readonly apiKey = this.configService.get<string>('NEWS_API_KEY');
+  private topicsQueue: Topic[] = [];
 
   constructor(
     private readonly websocketsGateway: WebsocketsGateway,
@@ -34,10 +35,24 @@ export class NewsApiService implements NewsImporterPort {
     if (!this.newsApiUrl || !this.apiKey) {
       throw new Error('NEWS_API_URL or NEWS_API_KEY is not defined');
     }
+
+    // Initialize category queue
+    this.initializeTopicQueue().then();
+  }
+
+  private async initializeTopicQueue() {
+    this.topicsQueue = await this.articleRepository.getTopics();
+    if (this.topicsQueue.length === 0) {
+      this.topicsQueue.push({
+        id: 1,
+        name: 'general',
+      }); // Fallback category
+    }
   }
 
   async importNews(cron: JobState): Promise<void> {
-    const topic = await this.articleRepository.getOrCreateTopic('general');
+    const topic = this.getNextTopic();
+
     const apiResponse = await this.fetchNewsFromExternalService(
       cron,
       topic.name,
@@ -49,30 +64,32 @@ export class NewsApiService implements NewsImporterPort {
     }
 
     const apiArticles = apiResponse.data.articles || [];
-
-    // If no articles are returned, reset the page to 1.
     if (apiArticles.length === 0) {
-      this.logger.log(
-        'No articles returned from external service. Resetting to page 1.',
-      );
-      await this.resetPage(cron.name);
+      this.logger.log('No articles returned from external service.');
       return;
     }
 
-    // Si hay artículos, pero la validación los filtra todos, incrementamos la página.
     const validArticles = apiArticles.filter(this.validateIncomingData);
-    // if (validArticles.length === 0) {
-    //   this.logger.log('All articles filtered out. Moving to the next page.');
-    //   await this.incrementPage(cron);
-    //
-    //   return;
-    // }
-
     const savedArticles = await this.saveIncomingArticles(validArticles, topic);
 
-    await this.incrementPage(cron);
-    await this.updateJobStateInDatabase(savedArticles, cron);
-    this.websocketsGateway.sendNewsToTopic(topic.name, savedArticles);
+    this.sendNotification(topic.name, savedArticles);
+  }
+
+  sendNotification(topicName: string, savedArticles: Article[]): void {
+    this.websocketsGateway.sendNewsToTopic(topicName, savedArticles);
+  }
+
+  private getNextTopic(): Topic {
+    const topic = this.topicsQueue.shift(); // Get the first category
+    if (topic) {
+      this.topicsQueue.push(topic); // Move it to the end of the queue
+    }
+    return (
+      topic ?? {
+        id: 1,
+        name: 'general',
+      }
+    ); // Fallback if the queue is empty
   }
 
   private async saveIncomingArticles(
@@ -105,11 +122,8 @@ export class NewsApiService implements NewsImporterPort {
       ? new Date(savedArticles[0].publishedAt)
       : cron.lastPublishedAt;
 
-    // const newPage = savedArticles.length < cron.pageSize ? 1 : cron.page + 1;
-
     await this.newsRepository.updateCronJobDataByName(cron.name, {
       lastPublishedAt: latestDate,
-      // page: newPage,
     });
   }
 
