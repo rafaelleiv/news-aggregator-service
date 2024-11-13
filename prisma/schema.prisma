@@ -1,3 +1,6 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
   provider      = "prisma-client-js"
   binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
@@ -10,21 +13,22 @@ datasource db {
 
 model Article {
   id          Int      @id @default(autoincrement())
-  title       String
+  title       String   @db.Text
   publishedAt DateTime
-  summary     String?
-  link        String?
+  summary     String?  @db.Text
+  link        String?  @db.Text
+  topics      Topic[]  @relation("ArticleTopics")
+  states      State[]  @relation("ArticleStates")
   authorId    Int?
+  author      User?    @relation(fields: [authorId], references: [id])
   authorName  String?
   views       Int      @default(0)
-  image       String?
+  image       String?  @db.Text
   slug        String   @unique
-  source      String?
-  author      User?    @relation(fields: [authorId], references: [id])
-  states      State[]  @relation("ArticleStates")
-  topics      Topic[]  @relation("ArticleTopics")
 
-  @@index([authorId], map: "Article_authorId_fkey")
+  source String?
+
+  @@index([slug], name: "article_slug_idx") // Index on slug
 }
 
 model State {
@@ -32,14 +36,15 @@ model State {
   name            String            @unique
   code            String            @unique
   articles        Article[]         @relation("ArticleStates")
-  userPreferences UserPreferences[] @relation("StateToUserPreferences")
+  userPreferences UserPreferences[]
 }
 
 model Topic {
   id              Int               @id @default(autoincrement())
   name            String            @unique
   articles        Article[]         @relation("ArticleTopics")
-  userPreferences UserPreferences[] @relation("TopicToUserPreferences")
+  userPreferences UserPreferences[]
+  jobStates       JobState[]
 }
 
 model User {
@@ -47,27 +52,30 @@ model User {
   email       String           @unique
   name        String?
   image       String?
-  articles    Article[]
   preferences UserPreferences?
+  articles    Article[]
 }
 
 model UserPreferences {
   id          Int     @id @default(autoincrement())
   userId      Int     @unique
+  savedStates State[]
+  savedTopics Topic[]
   user        User    @relation(fields: [userId], references: [id])
-  savedStates State[] @relation("StateToUserPreferences")
-  savedTopics Topic[] @relation("TopicToUserPreferences")
 }
 
 model JobState {
   id              Int       @id @default(autoincrement())
   name            String    @unique
   lastPublishedAt DateTime?
-  updatedAt       DateTime  @updatedAt
-  pageSize        Int?      @default(10)
   page            Int?      @default(1)
-  /// The interval for cron job execution. Possible values: "1s" (1 second), "1m" (1 minute), "1h" (1 hour), "1d" (1 day). Defaults to "10m".
-  interval        String    @default("10m")
-  /// Indicates if the cron job is currently active.
+  pageSize        Int?      @default(10)
+  interval        String    @default("10m") /// Possible values: "1s", "1m", "1h", "1d". Defaults to "10m".
   isActive        Boolean   @default(false)
+  topicId         Int? // Optional topicId
+  topic           Topic?    @relation(fields: [topicId], references: [id], onDelete: SetNull) // Optional relationship
+  updatedAt       DateTime  @updatedAt
+
+  @@index([name], name: "jobstate_name_idx") // Index on name
+  @@index([topicId], name: "jobstate_topicId_idx") // Index on topicId
 }

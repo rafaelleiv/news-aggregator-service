@@ -23,31 +23,10 @@ export class CronRepositoryService implements CronRepositoryPort {
     try {
       return await this.prisma.jobState.findUnique({
         where: { name: cronJobName },
+        include: { topic: true },
       });
     } catch (error) {
       this.logger.error(`Error getting cron job data by name: ${cronJobName}`);
-      throw error;
-    }
-  }
-
-  /**
-   * Updates the cron job data.
-   * @param cron - The state of the cron job.
-   */
-  async updateCronJobData(cron: JobState): Promise<void> {
-    this.logger.debug(
-      `Saving last published news by cron job name: ${cron.name}`,
-    );
-    try {
-      await this.prisma.jobState.upsert({
-        where: { name: cron.name },
-        update: { ...cron, updatedAt: new Date() },
-        create: { ...cron, updatedAt: new Date() },
-      });
-    } catch (error) {
-      this.logger.error(
-        `Error saving last published news by cron job name: ${cron.name}`,
-      );
       throw error;
     }
   }
@@ -82,7 +61,7 @@ export class CronRepositoryService implements CronRepositoryPort {
     try {
       await this.prisma.jobState.update({
         where: { name: cronJobName },
-        data: { isActive: true, page: 1 },
+        data: { isActive: true },
       });
     } catch (error) {
       this.logger.error(`Error activating cron job: ${cronJobName}`);
@@ -98,7 +77,7 @@ export class CronRepositoryService implements CronRepositoryPort {
     try {
       await this.prisma.jobState.update({
         where: { name: cronJobName },
-        data: { isActive: false, page: 1 },
+        data: { isActive: false },
       });
     } catch (error) {
       this.logger.error(`Error deactivating cron job: ${cronJobName}`);
@@ -115,12 +94,18 @@ export class CronRepositoryService implements CronRepositoryPort {
     cronJobName: string,
     updateData: Partial<JobState>,
   ): Promise<void> {
-    this.logger.debug(`Updating cron job data for: ${cronJobName}`);
+    this.logger.debug(
+      `Updating cron job data for: ${cronJobName} with ${JSON.stringify(updateData)}`,
+    );
     try {
       await this.prisma.jobState.update({
         where: { name: cronJobName },
         data: {
-          ...updateData,
+          lastPublishedAt: updateData.lastPublishedAt,
+          page: updateData.page,
+          pageSize: updateData.pageSize,
+          interval: updateData.interval,
+          isActive: updateData.isActive,
           updatedAt: new Date(),
         },
       });

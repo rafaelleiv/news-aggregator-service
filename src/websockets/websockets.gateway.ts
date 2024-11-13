@@ -1,48 +1,43 @@
 import {
-  ConnectedSocket,
-  MessageBody,
+  OnGatewayInit,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { Logger } from '@nestjs/common';
+import { Article } from '../../prisma/interfaces';
 
 @WebSocketGateway({ namespace: 'news', cors: true })
-export class WebsocketsGateway {
+export class WebsocketsGateway implements OnGatewayInit {
   @WebSocketServer() server: Server;
 
-  private clientSubscriptions = new Map<
-    string,
-    { topics: number[]; states: number[] }
-  >();
+  private readonly logger = new Logger(WebsocketsGateway.name);
 
-  @SubscribeMessage('subscribe')
-  handleSubscribe(
-    @MessageBody() data: { topics: number[]; states: number[] },
-    @ConnectedSocket() client: Socket,
-  ) {
-    this.clientSubscriptions.set(client.id, {
-      topics: data.topics,
-      states: data.states,
-    });
+  afterInit() {
+    this.logger.log('WebSocket server initialized');
   }
 
-  @SubscribeMessage('unsubscribe')
-  handleUnsubscribe(@ConnectedSocket() client: Socket) {
-    this.clientSubscriptions.delete(client.id);
+  handleConnection(client: Socket) {
+    this.logger.log(`Client connected: ${client.id}`);
   }
 
-  notifyClients(newsData: { topics: any[]; states: any[] }) {
-    this.clientSubscriptions.forEach((subscriptions, clientId) => {
-      const client = this.server.sockets.sockets.get(clientId);
-      if (
-        newsData.topics.some((topic) =>
-          subscriptions.topics.includes(topic.id),
-        ) ||
-        newsData.states.some((state) => subscriptions.states.includes(state.id))
-      ) {
-        client?.emit('new-news', newsData);
-      }
-    });
+  handleDisconnect(client: Socket) {
+    this.logger.log(`Client disconnected: ${client.id}`);
+  }
+
+  sendNewsToTopic(topic: string, news: Article[]) {
+    if (news.length === 0) {
+      console.warn(`No articles to send for topic: ${topic}`);
+    } else {
+      console.log(`Sending news to ${topic}:`, news);
+      this.server.to(topic).emit('newArticle', { topic, data: news });
+    }
+  }
+
+  @SubscribeMessage('subscribeToTopic')
+  handleSubscribe(client: Socket, topic: string) {
+    client.join(topic);
+    this.logger.log(`Client ${client.id} subscribed to topic: ${topic}`);
   }
 }

@@ -83,4 +83,28 @@ export class NewsApiController implements ControllerPort {
       throw error;
     }
   }
+
+  @Post('execute')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Execute the cron job immediately' })
+  @ApiResponse({ status: 200, description: 'Cron job executed successfully' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
+  async executeCronJob(
+    @Param('cronJobName') cronJobName: string,
+    @Res() res: Response,
+  ) {
+    try {
+      await this.cronService.executeCronJob();
+      this.logger.log(`Cron job ${cronJobName} executed successfully`);
+      return res
+        .status(HttpStatus.OK)
+        .json({ message: 'Cron job executed successfully' });
+    } catch (error) {
+      this.logger.error(`Failed to execute cron job: ${error.message}`);
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        message: 'Failed to execute cron job',
+        error: error.message,
+      });
+    }
+  }
 }

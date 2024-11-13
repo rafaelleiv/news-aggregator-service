@@ -1,7 +1,9 @@
 import { Article, Topic } from '../../../prisma/interfaces';
 
 export abstract class ArticleRepositoryPort {
-  abstract saveArticles(article: Article[]): Promise<any>;
+  abstract saveArticles(
+    article: Omit<Article, 'id' | 'authorId'>[],
+  ): Promise<Article[]>;
 
   abstract getTopics(): Promise<Topic[]>;
 

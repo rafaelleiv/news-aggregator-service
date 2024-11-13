@@ -5,8 +5,6 @@ export abstract class CronRepositoryPort {
 
   abstract getCronJobDataByName(cronJobName: string): Promise<JobState>;
 
-  abstract updateCronJobData(cron: JobState): Promise<void>;
-
   abstract activateCronJob(cronJobName: string): Promise<void>;
 
   abstract deactivateCronJob(cronJobName: string): Promise<void>;

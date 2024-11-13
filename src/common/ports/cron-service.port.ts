@@ -10,4 +10,6 @@ export abstract class CronServicePort {
     cronJobName: string,
     updateData: UpdateCronJobDto,
   ): Promise<void>;
+
+  abstract executeCronJob(): Promise<void>;
 }

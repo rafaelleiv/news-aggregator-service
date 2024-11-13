@@ -5,9 +5,7 @@ import { CronJob } from 'cron';
 import { CronServicePort } from '../../common/ports/cron-service.port';
 import { NewsImporterPort } from '../../common/ports/news-importer.port';
 import { CronRepositoryPort } from '../../common/ports/cron-repository.port';
-import { JobState } from '../../../prisma/interfaces';
 import { convertIntervalToCronScheduleValue } from '../../common/utils';
-import * as process from 'node:process';
 import { UpdateCronJobDto } from '../../common/dto/update-cron-job.dto';
 
 @Injectable()
@@ -53,7 +51,7 @@ export class CronService implements CronServicePort, OnModuleDestroy {
   async startCron(): Promise<void> {
     const cron = await this.newsRepository.getCronJobDataByName(this.name);
     const cronScheduleValue = convertIntervalToCronScheduleValue(cron.interval);
-    const job = new CronJob(cronScheduleValue, () => this.cronAction(cron));
+    const job = new CronJob(cronScheduleValue, () => this.cronAction());
     this.schedulerRegistry.addCronJob(this.name, job);
     job.start();
     this.logger.log(
@@ -81,7 +79,8 @@ export class CronService implements CronServicePort, OnModuleDestroy {
    * Action to be performed by the cron job.
    * @param cron - The state of the cron job.
    */
-  async cronAction(cron: JobState): Promise<void> {
+  async cronAction(): Promise<void> {
+    const cron = await this.newsRepository.getCronJobDataByName(this.name);
     this.logger.log(`Cron job ${this.name} is running...`);
     try {
       await this.newsApiService.importNews(cron);
@@ -89,6 +88,7 @@ export class CronService implements CronServicePort, OnModuleDestroy {
       this.logger.error(
         `Error running cron job ${this.name}: ${error.message}`,
       );
+      throw error;
     }
   }
 
@@ -134,5 +134,9 @@ export class CronService implements CronServicePort, OnModuleDestroy {
       );
       throw error;
     }
+  }
+
+  async executeCronJob(): Promise<void> {
+    await this.cronAction();
   }
 }
