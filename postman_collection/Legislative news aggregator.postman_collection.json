@@ -99,6 +99,37 @@
 						"description": "Updates the specified fields of a cron job. Replace `cronJobName` in the URL with the actual name of the cron job you want to update."
 					},
 					"response": []
+				},
+				{
+					"name": "Execute",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:3001/api/v1/newsapi/news-api-cron/execute",
+							"host": [
+								"localhost"
+							],
+							"port": "3001",
+							"path": [
+								"api",
+								"v1",
+								"newsapi",
+								"news-api-cron",
+								"execute"
+							]
+						}
+					},
+					"response": []
 				}
 			],
 			"description": "Manage the cron tha runs over the news api external source of articles"
