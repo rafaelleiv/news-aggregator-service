@@ -11,25 +11,20 @@ import { UpdateCronJobDto } from '../../common/dto/update-cron-job.dto';
 export class CronService implements CronServicePort, OnModuleDestroy {
   private readonly name = 'news-api-cron';
   private readonly logger = new Logger(CronService.name);
+  private cronScheduleValue: string;
 
-  /**
-   * Constructor for CronService.
-   * @param newsApiService - The service responsible for importing news.
-   * @param schedulerRegistry - The registry for managing scheduled jobs.
-   * @param configService - The service for accessing configuration variables.
-   * @param newsRepository - The repository for managing news data.
-   */
   constructor(
     private readonly newsApiService: NewsImporterPort,
     private readonly schedulerRegistry: SchedulerRegistry,
     private readonly newsRepository: CronRepositoryPort,
   ) {
+    this.cronScheduleValue = '*/10 * * * *'; // Default interval of 10 minutes
     this.registerAndStartCronJob().then();
     this.setupShutdownHooks();
   }
 
   /**
-   * Registers and starts the cron job.
+   * Registers and starts the cron job with a dynamic interval.
    */
   private async registerAndStartCronJob(): Promise<void> {
     try {
@@ -44,17 +39,22 @@ export class CronService implements CronServicePort, OnModuleDestroy {
   }
 
   /**
-   * Starts the cron job.
+   * Starts the cron job and sets up the dynamic interval from the database.
    */
   async startCron(): Promise<void> {
-    const cron = await this.newsRepository.getCronJobDataByName(this.name);
-    const cronScheduleValue = convertIntervalToCronScheduleValue(cron.interval);
-    const job = new CronJob(cronScheduleValue, () => this.cronAction());
+    const cronData = await this.newsRepository.getCronJobDataByName(this.name);
+    this.cronScheduleValue =
+      convertIntervalToCronScheduleValue(cronData.interval) ||
+      this.cronScheduleValue;
+    const job = new CronJob(this.cronScheduleValue, () => this.cronAction());
+
+    // Store and start the job
     this.schedulerRegistry.addCronJob(this.name, job);
     job.start();
     this.logger.log(
-      `Started cron job ${this.name} with interval ${cronScheduleValue}`,
+      `Cron job ${this.name} started with interval ${this.cronScheduleValue}`,
     );
+
     await this.newsRepository.activateCronJob(this.name);
   }
 
@@ -65,7 +65,7 @@ export class CronService implements CronServicePort, OnModuleDestroy {
     const job = this.schedulerRegistry.getCronJob(this.name);
     if (job) {
       job.stop();
-      this.logger.log(`Stopped cron job ${this.name}`);
+      this.logger.log(`Cron job ${this.name} stopped`);
       await this.newsRepository.deactivateCronJob(this.name);
       this.schedulerRegistry.deleteCronJob(this.name);
     } else {
@@ -74,33 +74,44 @@ export class CronService implements CronServicePort, OnModuleDestroy {
   }
 
   /**
-   * Action to be performed by the cron job.
-   * @param cron - The state of the cron job.
+   * Action executed by the cron job; checks and updates the dynamic interval.
    */
   async cronAction(): Promise<void> {
-    const cron = await this.newsRepository.getCronJobDataByName(this.name);
-    this.logger.log(`Cron job ${this.name} is running...`);
+    const cronData = await this.newsRepository.getCronJobDataByName(this.name);
+    const newCronScheduleValue =
+      convertIntervalToCronScheduleValue(cronData.interval) ||
+      this.cronScheduleValue;
+
+    // Check if the interval has changed and restart the cron job if necessary
+    if (newCronScheduleValue !== this.cronScheduleValue) {
+      this.logger.log(
+        `Detected new interval for ${this.name}. Restarting with interval ${newCronScheduleValue}`,
+      );
+      await this.stopCron(); // Stop current cron job
+      this.cronScheduleValue = newCronScheduleValue;
+      await this.startCron(); // Restart cron job with new interval
+      return; // Exit current execution after restart
+    }
+
+    this.logger.log(`Cron job ${this.name} running at ${new Date()}`);
     try {
-      await this.newsApiService.importNews(cron);
+      await this.newsApiService.importNews(cronData);
     } catch (error) {
       this.logger.error(
         `Error running cron job ${this.name}: ${error.message}`,
       );
       throw error;
     }
+    this.logger.log(
+      `Cron job ${this.name} completed at ${new Date()}. Next run in ${cronData.interval}`,
+    );
   }
 
-  /**
-   * Handles module destruction by stopping the cron job.
-   */
   async onModuleDestroy(): Promise<void> {
-    this.logger.log(`Shutting down ${this.name} cron job on module destroy`);
+    this.logger.log(`Shutting down cron job ${this.name} on module destroy`);
     await this.stopCron();
   }
 
-  /**
-   * Sets up shutdown hooks to stop the cron job gracefully.
-   */
   private setupShutdownHooks(): void {
     process.on('SIGINT', async () => {
       this.logger.log('Received SIGINT. Shutting down gracefully...');
