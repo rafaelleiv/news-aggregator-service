@@ -87,10 +87,16 @@ export class CronService implements CronServicePort, OnModuleDestroy {
       this.logger.log(
         `Detected new interval for ${this.name}. Restarting with interval ${newCronScheduleValue}`,
       );
-      await this.stopCron(); // Stop current cron job
+      await this.stopCron(); // Stop the current cron job
       this.cronScheduleValue = newCronScheduleValue;
-      await this.startCron(); // Restart cron job with new interval
-      return; // Exit current execution after restart
+      await this.startCron(); // Restart a cron job with a new interval
+
+      // Execute the cron job action immediately after rescheduling
+      await this.newsApiService.importNews(cronData);
+      this.logger.log(
+        `Executed cron job ${this.name} immediately after rescheduling.`,
+      );
+      return; // Exit current execution after immediate run
     }
 
     this.logger.log(`Cron job ${this.name} running at ${new Date()}`);
